@@ -16,6 +16,7 @@ from tornado.ioloop import IOLoop
 from pyulog import ULog
 from pyulog.px4 import PX4ULog
 
+# path 추가 
 # this is needed for the following imports
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../plot_app'))
 from db_entry import DBVehicleData, DBData
@@ -79,14 +80,16 @@ def update_vehicle_db_entry(cur, ulog, log_id, vehicle_name):
 class UploadHandler(TornadoRequestHandlerBase):
     """ Upload log file Tornado request handler: handles page requests and POST
     data """
-
+    # 인스턴스 초기화
     def initialize(self):
         """ initialize the instance """
         self.multipart_streamer = None
 
     def prepare(self):
+        # 새로운 request를 받기 전에 호출
         """ called before a new request """
         if self.request.method.upper() == 'POST':
+            # 파일 size가 있는 경우
             if 'expected_size' in self.request.arguments:
                 self.request.connection.set_max_body_size(
                     int(self.get_argument('expected_size')))
@@ -97,11 +100,13 @@ class UploadHandler(TornadoRequestHandlerBase):
             self.multipart_streamer = MultiPartStreamer(total)
 
     def data_received(self, chunk):
+        # 새로운 data를 수신할 때마다 호출
         """ called whenever new data is received """
-        if self.multipart_streamer:
+        if self.multipart_streamer:  # multipart_streamer 의미는?? 여러개 조각으로 오는 경우
             self.multipart_streamer.data_received(chunk)
 
     def get(self, *args, **kwargs):
+        # GET 에 대한 처리. template에 쓰기
         """ GET request callback """
         template = get_jinja_env().get_template(UPLOAD_TEMPLATE)
         self.write(template.render())
@@ -109,6 +114,7 @@ class UploadHandler(TornadoRequestHandlerBase):
     def post(self, *args, **kwargs):
         """ POST request callback """
         if self.multipart_streamer:
+            # data 수신을 완료한 경우
             try:
                 self.multipart_streamer.data_complete()
                 form_data = self.multipart_streamer.get_values(

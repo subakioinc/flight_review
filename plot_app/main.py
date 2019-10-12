@@ -23,6 +23,7 @@ from statistics_plots import StatisticsPlots
 
 
 GET_arguments = curdoc().session_context.request.arguments
+# stats 인 경우에 전체 log 정보 보여주기
 if GET_arguments is not None and 'stats' in GET_arguments:
 
     # show the statistics page
@@ -128,12 +129,13 @@ else:
         db_data = DBData()
         vehicle_data = None
         try:
+            # sqlite DB에서 log 정보 얻기
             con = sqlite3.connect(get_db_filename(), detect_types=sqlite3.PARSE_DECLTYPES)
             cur = con.cursor()
             cur.execute('select Description, Feedback, Type, WindSpeed, Rating, VideoUrl, '
                         'ErrorLabels from Logs where Id = ?', [log_id])
-            db_tuple = cur.fetchone()
-            if db_tuple is not None:
+            db_tuple = cur.fetchone()  # DB에서 fetch 해옴
+            if db_tuple is not None: # db_tuple[]와 select column 순서와 매핑
                 db_data.description = db_tuple[0]
                 db_data.feedback = db_tuple[1]
                 db_data.type = db_tuple[2]
@@ -181,6 +183,7 @@ else:
             return (title, error_message, plots)
 
 
+        # 어떤 plot을 보여줄지 검사
         # check which plots to show
         plots_page = 'default'
         if GET_arguments is not None and 'plots' in GET_arguments:
@@ -230,6 +233,7 @@ else:
             link_to_pid_analysis_page = '?plots=pid_analysis&log='+log_id
 
             try:
+                # 여기서 plot을 생성??
                 plots = generate_plots(ulog, px4_ulog, db_data, vehicle_data,
                                        link_to_3d_page, link_to_pid_analysis_page)
 

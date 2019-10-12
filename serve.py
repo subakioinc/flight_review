@@ -33,6 +33,7 @@ from config import debug_print_timing, get_overview_img_filepath
 #pylint: disable=invalid-name
 
 def _fixup_deprecated_host_args(arguments):
+    # --host는 0.12.5 이후로 사용안함. 대신 --allow-websocket-origin 사용
     # --host is deprecated since bokeh 0.12.5. You might want to use
     # --allow-websocket-origin instead
     if arguments.host is not None and len(arguments.host) > 0:
@@ -74,14 +75,17 @@ parser.add_argument('--allow-websocket-origin', action='append', type=str, metav
 
 args = parser.parse_args()
 
+# --host 옵션을 강제 삭제
 # This should remain here until --host is removed entirely
 _fixup_deprecated_host_args(args)
 
+# application 변수 설정. '/plot_app'의 디렉토리 위치 설정
 applications = {}
 main_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'plot_app')
 handler = DirectoryHandler(filename=main_path)
 applications['/plot_app'] = Application(handler)
 
+# server_kwargs 설정
 server_kwargs = {}
 if args.port is not None: server_kwargs['port'] = args.port
 if args.use_xheaders: server_kwargs['use_xheaders'] = args.use_xheaders
@@ -95,7 +99,7 @@ server_kwargs['websocket_max_message_size'] = 100 * 1024 * 1024
 # increase the maximum upload size (default is 100MB)
 server_kwargs['http_server_kwargs'] = {'max_buffer_size': 300 * 1024 * 1024}
 
-
+# arg로 ulog 파일을 받은 경우 : ulog파일, 3d, pid 분석 보여주기
 show_ulog_file = False
 show_3d_page = False
 show_pid_analysis_page = False
@@ -108,7 +112,7 @@ if args.file is not None:
 
 set_log_id_is_filename(show_ulog_file)
 
-
+# 추가 req handler 
 # additional request handlers
 extra_patterns = [
     (r'/upload', UploadHandler),
@@ -129,8 +133,10 @@ server = None
 custom_port = 5006
 while server is None:
     try:
+        # server의 main handler는 application에 있고 추가 handler는 extra_patterns로 전달 
         server = Server(applications, extra_patterns=extra_patterns, **server_kwargs)
     except OSError as e:
+        # port bind 에러가 발생하면 '-f' 옵션으로 로컬로 실행. 자동으로 다른 port를 선택.
         # if we get a port bind error and running locally with '-f',
         # automatically select another port (useful for opening multiple logs)
         if e.errno == errno.EADDRINUSE and show_ulog_file:
@@ -140,18 +146,21 @@ while server is None:
             raise
 
 if args.show:
+    # server를 구동시킬때까지 browser에서 열리는 작업을 연기!!
     # we have to defer opening in browser until we start up the server
     def show_callback():
         """ callback to open a browser window after server is fully initialized"""
         if show_ulog_file:
-            if show_3d_page:
+            if show_3d_page:  # 3D 화면
                 server.show('/3d?log='+ulog_file)
-            elif show_pid_analysis_page:
+            elif show_pid_analysis_page: # PID 분석
                 server.show('/plot_app?plots=pid_analysis&log='+ulog_file)
             else:
+                #ulog 파일이 뒤에 붙음 (기본 화면)
                 server.show('/plot_app?log='+ulog_file)
         else:
             server.show('/upload')
+    # server에 show_callback을 전달하여 실행해 달라고 요청
     server.io_loop.add_callback(show_callback)
 
 
@@ -162,6 +171,7 @@ if debug_print_timing():
         server.io_loop.call_later(60*60, print_statistics)
     server.io_loop.call_later(60, print_statistics)
 
+# 0.12.4 버전에 run_until_shutdown 기능이 생겼음(추천)
 # run_until_shutdown has been added 0.12.4 and is the preferred start method
 run_op = getattr(server, "run_until_shutdown", None)
 if callable(run_op):
